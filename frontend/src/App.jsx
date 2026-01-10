@@ -2,6 +2,7 @@ import { Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
+import "./App.css";
 
 // Placeholder Pages (Create these simple files in /pages if you haven't yet)
 import Dashboard from "./pages/Dashboard";
