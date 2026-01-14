@@ -1,12 +1,17 @@
 package middleware
 
 import (
+	"encoding/json"
 	"net/http"
 	"os"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 )
+
+type SupabaseUser struct {
+	ID string `json:"id"`
+}
 
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -32,8 +37,15 @@ func AuthMiddleware() gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
 			return
 		}
+		defer resp.Body.Close()
+
+		var user SupabaseUser
+		if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Failed to parse user data"})
+		}
 
 		// pass to next handler
+		c.Set("user_id", user.ID)
 		c.Next()
 	}
 }
