@@ -1,67 +1,88 @@
-import "./Dashboard.css";
-import { useEffect, useState } from 'react';
-import axios from 'axios';
-import { supabase } from '../supabaseClient';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-
-
+import { useEffect, useState } from "react";
+import { supabase } from "../supabaseClient";
+import { LineChart } from "@mui/x-charts/LineChart";
+import { Box, Typography, Paper, CircularProgress } from "@mui/material";
 
 const Dashboard = () => {
-  const [data, setData] = useState();
-  const [loading, setLoading] = useState;
+  const [chartData, setChartData] = useState({ dates: [], profits: [] });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchData = async() => {
-      try {
-        const { data: { session } } = await.supabase.auth.getSession();
-        const token = session?.access_token;
+    const fetchProfits = async () => {
+      const { data: products, error } = await supabase
+        .from("products")
+        .select("sale_price, material_cost, sold_at")
+        .order("sold_at", { ascending: true });
 
-        // call go backend
-        const response = await axios.get("http://localhost:8080/api/dashboard", {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-
-        setData(response.data || []);
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      } finally {
+      if (error || !products) {
         setLoading(false);
-        }
+        return;
+      }
+
+      // Grouping logic (same as before but optimized for MUI arrays)
+      const totals = products.reduce((acc, item) => {
+        const date = item.sold_at;
+        const profit = item.sale_price - item.material_cost;
+        acc[date] = (acc[date] || 0) + profit;
+        return acc;
+      }, {});
+
+      setChartData({
+        dates: Object.keys(totals), // X-Axis labels
+        profits: Object.values(totals), // Y-Axis values
+      });
+      setLoading(false);
     };
 
-    fetchData();
+    fetchProfits();
   }, []);
 
-  if (loading) return <div>Loading your profits...</div>
+  if (loading)
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", p: 5 }}>
+        <CircularProgress />
+      </Box>
+    );
 
   return (
-    <div>
-      <h1>Prodit Dashboard</h1>
+    <Box sx={{ p: 4, maxWidth: 800, margin: "0 auto" }}>
+      <Typography variant="h4" gutterBottom sx={{ fontWeight: "bold" }}>
+        Business Performance
+      </Typography>
 
-      {data.length === 0 ? (
-        <p>No sales data found. Add something.</p>
-      ) : (
-        <div style={{ width: '100%', height: 400, marginTop: '2rem' }}>
-                  <ResponsiveContainer>
-                    <LineChart data={data}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis />
-                      <Tooltip />
-                      <Line
-                        type="monotone"
-                        dataKey="profit"
-                        stroke="#007bff"
-                        strokeWidth={3}
-                        activeDot={{ r: 8 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-      )}
-    </div>
+      <Paper elevation={3} sx={{ p: 2, borderRadius: 4, bgcolor: "#1e1e1e" }}>
+        <LineChart
+          xAxis={[
+            {
+              data: chartData.dates,
+              scaleType: "point",
+              label: "Date of Sale",
+            },
+          ]}
+          series={[
+            {
+              data: chartData.profits,
+              label: "Profit ($)",
+              color: "#0288d1",
+              area: true, // This adds a nice subtle fill under the line
+            },
+          ]}
+          height={400}
+          margin={{ left: 60, right: 30, top: 30, bottom: 50 }}
+          grid={{ vertical: true, horizontal: true }}
+          // Styling for Dark Mode look
+          sx={{
+            ".MuiLineElement-root": { strokeWidth: 4 },
+            ".MuiAreaElement-root": { fill: "rgba(2, 136, 209, 0.2)" },
+            "& .MuiChartsAxis-left .MuiChartsAxis-tickLabel": { fill: "#ccc" },
+            "& .MuiChartsAxis-bottom .MuiChartsAxis-tickLabel": {
+              fill: "#ccc",
+            },
+            "& .MuiChartsAxis-label": { fill: "#fff" },
+          }}
+        />
+      </Paper>
+    </Box>
   );
 };
 
